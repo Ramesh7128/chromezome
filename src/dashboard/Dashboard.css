@@ -1,0 +1,54 @@
+.Dashboard {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  h1 {
+    font-size: 24px;
+    margin-bottom: 20px;
+    color: #333;
+  }
+  
+  .card {
+    background-color: #f5f5f5;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 15px;
+    margin-bottom: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  
+  .card-name {
+    flex-grow: 1;
+    cursor: pointer;
+    font-size: 16px;
+    color: #4285f4;
+  }
+  
+  .card-name:hover {
+    text-decoration: underline;
+  }
+  
+  .delete-btn {
+    background-color: #db4437;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+  }
+  
+  .delete-btn:hover {
+    background-color: #c53929;
+  }
+  
+  .delete-btn:active {
+    background-color: #b33024;
+  }
+  
