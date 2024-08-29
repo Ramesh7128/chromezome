@@ -6,19 +6,94 @@ import { ChakraProvider, Box, Flex, VStack, Heading, Button, Divider, Image, Ico
 import theme from '../theme';
 import { FaClone, FaArchive, FaWindowClose, FaColumns } from "react-icons/fa";
 
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 function Popup() {
   const [isSavingTabs, setIsSavingTabs] = useState(false);
   const [isClosingTabs, setIsClosingTabs] = useState(false);
   const [isOpeningDashboard, setIsOpeningDashboard] = useState(false);
   const [isSavingAndClosing, setIsSavingAndClosing] = useState(false);
 
+  const captureTabScreenshot = async (tab) => {
+    return new Promise((resolve) => {
+      chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 50 }, (dataUrl) => {
+        if (chrome.runtime.lastError) {
+          console.error(chrome.runtime.lastError);
+          resolve(null);
+        } else {
+          resolve(dataUrl);
+        }
+      });
+    });
+  };
+
+  const captureTabThumbnails = async (tabs) => {
+    const capturedTabs = [];
+    for (const tab of tabs) {
+      try {
+        await chrome.tabs.update(tab.id, { active: true });
+        await new Promise(resolve => setTimeout(resolve, 250)); // Wait for tab to become visible
+        const screenshot = await captureTabScreenshot(tab);
+        const resizedScreenshot = await resizeImage(screenshot, 200, 150);
+        capturedTabs.push({...tab, thumbnail: resizedScreenshot.split(',')[1]}); // Remove the data URL prefix
+      } catch (error) {
+        console.error(`Failed to capture thumbnail for tab ${tab.id}:`, error);
+        capturedTabs.push({...tab, thumbnail: null});
+      }
+    }
+    return capturedTabs;
+  };
+
+  // Helper function to resize the image
+  const resizeImage = (dataUrl, maxWidth, maxHeight) => {
+    return new Promise((resolve) => {
+      const img = new window.Image();  // Use window.Image instead of Image
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+
+        resolve(canvas.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = dataUrl;
+    });
+  };
+
+  const captureTabInfo = (tabs) => {
+    return tabs.map(tab => ({
+      url: tab.url,
+      title: tab.title,
+      favicon: tab.favIconUrl || null
+    }));
+  };
+
   const saveCurrentTabs = () => {
     setIsSavingTabs(true);
     chrome.tabs.query({currentWindow: true}, (tabs) => {
+      const tabData = captureTabInfo(tabs);
+
       const tabGroup = {
         id: Date.now(),
         name: `Tabs saved on ${new Date().toLocaleString()}`,
-        urls: tabs.map(tab => tab.url)
+        urls: tabData
       };
       
       chrome.storage.local.get({tabGroups: []}, (result) => {
@@ -45,11 +120,17 @@ function Popup() {
 
   const saveAndCloseAllTabs = () => {
     setIsSavingAndClosing(true);
-    chrome.tabs.query({currentWindow: true}, (tabs) => {
+    chrome.tabs.query({currentWindow: true}, async (tabs) => {
+      const tabData = await captureTabThumbnails(tabs);
+
       const tabGroup = {
         id: Date.now(),
         name: `Tabs saved on ${new Date().toLocaleString()}`,
-        urls: tabs.map(tab => tab.url)
+        urls: tabData.map(tab => ({
+          url: tab.url,
+          title: tab.title,
+          thumbnail: tab.thumbnail
+        }))
       };
       
       chrome.storage.local.get({tabGroups: []}, (result) => {
